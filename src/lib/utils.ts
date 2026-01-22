@@ -120,12 +120,12 @@ function computeIRR(cashFlows: number[], guess = 0.002) {
 
 const FIXED_FEES = {
   ["Droit pour les annexes"]: 100,
-  ["Honoraires"]: 2878.24,
+  ["Honoraires"]: 2771.74,
   ["Frais administratifs"]: 855,
   ["Débours"]: 304,
   ["Transcription hypothécaire"]: 285,
   ["Droit d'écriture"]: 100,
-  ["TVA"]: 868,
+  ["TVA"]: 846.46,
 };
 
 /**
@@ -172,8 +172,8 @@ export function computeMortgage(
   };
 
   const upfrontFees = sum(Object.values(allUpfrontFees));
-  const equityMinusUpfrontFees = totalEquity - upfrontFees;
-  const loanPrincipal = principal - equityMinusUpfrontFees;
+  const equityMinusFixedFees = totalEquity - upfrontFees;
+  const loanPrincipal = principal - equityMinusFixedFees;
 
   for (const loaner of loanerInfos) {
     loaner.split =
@@ -202,7 +202,7 @@ export function computeMortgage(
     return result;
   });
 
-  return { fees: allUpfrontFees, loans };
+  return { fees: allUpfrontFees, principal: loanPrincipal, loans };
 }
 
 export function sum(list: number[]) {

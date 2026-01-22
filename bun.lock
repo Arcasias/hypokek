@@ -5,13 +5,13 @@
     "": {
       "name": "hypokek",
       "devDependencies": {
-        "@sveltejs/vite-plugin-svelte": "^6.2.1",
+        "@sveltejs/vite-plugin-svelte": "^6.2.4",
         "@tailwindcss/vite": "^4.1.18",
         "@tsconfig/svelte": "^5.0.6",
-        "@types/node": "^24.10.1",
+        "@types/node": "^24.10.9",
         "gh-pages": "^6.3.0",
-        "svelte": "^5.43.8",
-        "svelte-check": "^4.3.4",
+        "svelte": "^5.47.1",
+        "svelte-check": "^4.3.5",
         "tailwindcss": "^4.1.18",
         "typescript": "~5.9.3",
         "vite": "npm:rolldown-vite@7.2.5",

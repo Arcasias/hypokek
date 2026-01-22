@@ -2,12 +2,7 @@
   import { computeMortgage, sum, type Loaner } from "./lib/utils";
 
   function addLoaner() {
-    loaners.push({
-      name: "",
-      equity: 0,
-      owner: false,
-      share: 0,
-    });
+    loaners.push({ ...DEFAULT_LOANER_VALUES });
     updateShares();
   }
 
@@ -36,6 +31,12 @@
     updateShares();
   }
 
+  const DEFAULT_LOANER_VALUES = {
+    name: "",
+    equity: 0,
+    owner: false,
+    share: 0,
+  };
   const LOCALE = "fr-BE";
   const STORAGE_KEY = "mortgage-data";
 
@@ -56,7 +57,7 @@
         durations: [20, 25, 30],
         fixedRate: 3,
         mandatoryInsurance: 0,
-        loaners: [],
+        loaners: [{ ...DEFAULT_LOANER_VALUES, share: 100 }],
       };
 
   let fixedRate = $state(defaultValues.fixedRate);
@@ -71,8 +72,8 @@
       durations,
       fixedRate,
       mandatoryInsurance,
-      loaners
-    )
+      loaners,
+    ),
   );
   $effect(() => {
     localStorage.setItem(
@@ -83,7 +84,7 @@
         durations,
         mandatoryInsurance,
         loaners,
-      })
+      }),
     );
   });
 </script>
@@ -97,7 +98,9 @@
       class="flex flex-col gap-3"
       onsubmit={(ev) => ev.preventDefault()}
     >
-      <h2 class="font-bold text-xl py-1 border-b-2 border-slate-300">Paramètres ⚙️</h2>
+      <h2 class="font-bold text-xl py-1 border-b-2 border-slate-300">
+        Paramètres ⚙️
+      </h2>
       <label
         class="flex items-center text-nowrap gap-2 select-none"
         for="principal"
@@ -108,7 +111,8 @@
           class="w-full px-1 border-b-2 border-amber-500"
           type="number"
           bind:value={principal}
-        /> €
+        />
+        €
       </label>
       <label
         for="fixedRate"
@@ -120,7 +124,8 @@
           class="w-full px-1 border-b-2 border-amber-500"
           type="number"
           bind:value={fixedRate}
-        /> %
+        />
+        %
       </label>
       <label
         class="flex items-center text-nowrap gap-2 select-none"
@@ -132,7 +137,8 @@
           class="w-full px-1 border-b-2 border-amber-500"
           type="number"
           bind:value={mandatoryInsurance}
-        /> €
+        />
+        €
       </label>
       <ul class="flex flex-col gap-3">
         {#each loaners as loaner, index}
@@ -172,7 +178,8 @@
                 class="w-full px-1 border-b-2 border-amber-500"
                 type="number"
                 bind:value={loaner.equity}
-              /> €
+              />
+              €
             </label>
             <label
               class="flex w-full items-center text-nowrap gap-2 select-none"
@@ -191,7 +198,7 @@
               <input
                 id="{loanerId}-share"
                 type="number"
-                class="w-10 text-right"
+                class="w-12 text-right"
                 bind:value={loaner.share}
                 oninput={() => updateShares(loaner)}
               />
@@ -215,11 +222,15 @@
       <button
         type="button"
         class="cursor-pointer flex p-3 shadow bg-amber-600 hover:bg-amber-700 transition-colors text-white rounded-xl font-bold"
-        onclick={addLoaner}>➕ Ajouter un propriétaire</button
+        onclick={addLoaner}
       >
+        ➕ Ajouter un propriétaire
+      </button>
     </form>
     <div class="flex flex-col gap-3">
-      <h2 class="font-bold text-xl py-1 border-b-2 border-slate-300">Frais 💸</h2>
+      <h2 class="font-bold text-xl py-1 border-b-2 border-slate-300">
+        Frais 💸
+      </h2>
       <ul class="flex flex-col gap-2">
         {#each Object.entries(mortgageResults.fees) as [name, value]}
           <li>
@@ -229,30 +240,39 @@
         {/each}
       </ul>
       <h3 class="p-2 border-2 border-amber-600 rounded-lg">
-        Total : <strong class="text-amber-600"
-          >{formatCurrency(sum(Object.values(mortgageResults.fees)))}</strong
-        >
+        Total : <strong class="text-amber-600">
+          {formatCurrency(sum(Object.values(mortgageResults.fees)))}
+        </strong>
       </h3>
     </div>
   </div>
   <div class="flex flex-col gap-3 overflow-auto w-full md:w-auto">
-    <h2 class="font-bold text-xl py-1 border-b-2 border-slate-300">Options de prêts 📈</h2>
+    <h2 class="font-bold text-xl py-1 border-b-2 border-slate-300">
+      Options de prêts 📈
+    </h2>
+    <div>
+      Montant: <strong>{formatCurrency(mortgageResults.principal)}</strong>
+    </div>
     <ul class="flex flex-col gap-3 md:flex-row overflow-auto">
       {#each mortgageResults.loans as loan (loan.duration)}
         <li class="border border-amber-600 rounded-xl overflow-clip">
           <h3 class="bg-amber-600 text-white font-bold py-2 px-3">
-            Durée : <strong>{loan.duration}</strong> ans
+            Durée : <strong>{loan.duration}</strong>
+            ans
           </h3>
           <fieldset class="flex flex-col gap-1 p-2">
-            <div>TAEG : <strong>{formatPercent(loan.taeg)}</strong></div>
             <div>
-              Mensualités : <strong
-                >{formatCurrency(loan.monthlyPayment)}</strong
-              >
+              TAEG : <strong>{formatPercent(loan.taeg)}</strong>
+            </div>
+            <div>
+              Mensualités : <strong>
+                {formatCurrency(loan.monthlyPayment)}
+              </strong>
             </div>
             {#each loan.monthlyPayments || [] as [name, payment]}
               <div class="ps-2">
-                <strong class="text-amber-600">{name}</strong> :
+                <strong class="text-amber-600">{name}</strong>
+                :
                 <span>{formatCurrency(payment)}</span>
               </div>
             {/each}
@@ -261,20 +281,21 @@
             </div>
             {#each loan.totalsPaid || [] as [name, total]}
               <div class="ps-2">
-                <strong class="text-amber-600">{name}</strong> :
+                <strong class="text-amber-600">{name}</strong>
+                :
                 <span>{formatCurrency(total)}</span>
               </div>
             {/each}
             <div>
-              Total intérêts : <strong
-                >{formatCurrency(loan.totalInterest)}</strong
-              >
+              Total intérêts : <strong>
+                {formatCurrency(loan.totalInterest)}
+              </strong>
             </div>
             {#if loan.totalInsurance}
               <div>
-                Total assurances : <strong
-                  >{formatCurrency(loan.totalInsurance)}</strong
-                >
+                Total assurances : <strong>
+                  {formatCurrency(loan.totalInsurance)}
+                </strong>
               </div>
             {/if}
           </fieldset>
