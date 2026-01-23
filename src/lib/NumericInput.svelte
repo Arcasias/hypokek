@@ -4,7 +4,7 @@
       .replaceAll(RE_FORBIDDEN, "")
       .replaceAll(RE_NUMBER, (match) => String(Number(match)));
     try {
-      const number = eval(safeString);
+      const number = window.eval(safeString);
       value = Number(Number(number).toFixed(3));
     } catch {
       console.warn("Invalid expression:", safeString);
