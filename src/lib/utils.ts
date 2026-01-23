@@ -33,7 +33,7 @@ function computeAnnuityWithTAEG(
   rate: number,
   duration: number,
   monthlyMandatoryInsurance: number,
-  upfrontFees: number
+  upfrontFees: number,
 ): MortgageResult {
   const monthlyRate = rate / 12 / 100;
   const amountOfPayments = duration * 12;
@@ -49,8 +49,8 @@ function computeAnnuityWithTAEG(
     loan - upfrontFees, // t = 0
   ].concat(
     Array(amountOfPayments).fill(
-      -(fixedMonthlyPayment + monthlyMandatoryInsurance)
-    )
+      -(fixedMonthlyPayment + monthlyMandatoryInsurance),
+    ),
   );
 
   const monthlyIRR = computeIRR(cashFlows);
@@ -133,16 +133,25 @@ const FIXED_FEES = {
  * It should take into account a basic implementation of the TAEG.
  */
 export function computeMortgage(
-  principal: number,
-  durations: number | number[],
-  fixedRate: number,
-  mandatoryInsurance: number,
-  loaners: Loaner[]
+  {
+    asrd,
+    asrdPeriod,
+    duration,
+    fixedRate,
+    loaners,
+    incendie,
+    principal,
+  }: {
+    asrd: number;
+    asrdPeriod: number;
+    duration: number;
+    fixedRate: number;
+    incendie: number;
+    loaners: Loaner[];
+    principal: number;
+  },
+  fees: Record<string, number>,
 ) {
-  if (!Array.isArray(durations)) {
-    durations = [durations];
-  }
-
   const defaultShare = 100 / (loaners.length || 1);
   const loanerInfos: LoanerInfo[] = [];
   let totalRegisteringRights = 0;
@@ -168,12 +177,12 @@ export function computeMortgage(
 
   const allUpfrontFees = {
     ["Droits d'enregistrement"]: totalRegisteringRights,
-    ...FIXED_FEES,
+    ...fees,
   };
 
-  const upfrontFees = sum(Object.values(allUpfrontFees));
-  const equityMinusFixedFees = totalEquity - upfrontFees;
+  const equityMinusFixedFees = totalEquity - sum(Object.values(allUpfrontFees));
   const loanPrincipal = principal - equityMinusFixedFees;
+  let upfrontFees = 0;
 
   for (const loaner of loanerInfos) {
     loaner.split =
@@ -182,27 +191,39 @@ export function computeMortgage(
         : 1 / (loaners.length || 1);
   }
 
-  const loans = durations.map((duration) => {
-    const result = computeAnnuityWithTAEG(
-      loanPrincipal,
-      fixedRate,
-      duration,
-      mandatoryInsurance,
-      upfrontFees
-    );
-    if (loanerInfos.length > 1) {
-      result.totalsPaid = [];
-      result.monthlyPayments = [];
-      for (const { name, split } of loanerInfos) {
-        const nameShort = name.split(/\s+/)[0];
-        result.totalsPaid.push([nameShort, split * result.totalPaid]);
-        result.monthlyPayments.push([nameShort, split * result.monthlyPayment]);
-      }
+  let mandatoryInsurances = 0;
+  if (incendie > 0) {
+    mandatoryInsurances += incendie;
+  }
+  if (asrd > 0) {
+    if (asrdPeriod > 0) {
+      mandatoryInsurances += asrd / (asrdPeriod * 12);
+    } else {
+      upfrontFees += asrd;
     }
-    return result;
-  });
+  }
 
-  return { fees: allUpfrontFees, principal: loanPrincipal, loans };
+  const result = computeAnnuityWithTAEG(
+    loanPrincipal,
+    fixedRate,
+    duration,
+    mandatoryInsurances,
+    upfrontFees,
+  );
+  if (loanerInfos.length > 1) {
+    result.totalsPaid = [];
+    result.monthlyPayments = [];
+    for (const { name, split } of loanerInfos) {
+      const nameShort = name.split(/\s+/)[0];
+      result.totalsPaid.push([nameShort, split * result.totalPaid]);
+      result.monthlyPayments.push([nameShort, split * result.monthlyPayment]);
+    }
+  }
+  return {
+    ...result,
+    fees: allUpfrontFees,
+    principal: loanPrincipal,
+  };
 }
 
 export function sum(list: number[]) {
