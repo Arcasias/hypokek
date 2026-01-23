@@ -101,207 +101,198 @@
   });
 </script>
 
-<main class="w-screen h-screen flex flex-col gap-8 p-5">
-  <div class="flex flex-col gap-5 overflow-auto w-full md:flex-row md:w-auto">
-    <details class="flex flex-col gap-3" open>
-      <summary class="cursor-pointer list-none">
-        <h2 class="font-bold text-xl py-1 border-b-2 border-slate-300">
-          Paramètres ⚙️
-        </h2>
-      </summary>
-      <div class="flex flex-col gap-3">
-        <label
-          class="flex items-center text-nowrap gap-2 select-none"
-          for="principal"
-        >
-          Prix total :
-          <NumericInput
-            id="principal"
-            bind:value={params.principal}
-            suffix="€"
-          />
-        </label>
-        <label
-          for="fixedRate"
-          class="flex items-center text-nowrap gap-2 select-none"
-        >
-          Taux fixe :
-          <NumericInput
-            id="fixedRate"
-            bind:value={params.fixedRate}
-            suffix="%"
-          />
-        </label>
-        <div class="flex gap-2">
-          Durée :
-          <ul class="flex gap-1">
-            {#each DURATIONS as duration}
-              <li>
-                <label
-                  for="duration_{duration}"
-                  class="cursor-pointer p-2 rounded-lg hover:bg-amber-500 hover:text-white transition-colors"
-                  class:bg-amber-600={params.duration === duration}
-                  class:text-white={params.duration === duration}
-                >
-                  <strong>{duration} ans</strong>
-                  <input
-                    id="duration_{duration}"
-                    type="radio"
-                    name="duration"
-                    class="hidden"
-                    value={duration}
-                    bind:group={params.duration}
-                  />
-                </label>
-              </li>
-            {/each}
-          </ul>
-        </div>
-        <label
-          class="flex items-center text-nowrap gap-2 select-none"
-          for="incendie"
-        >
-          Assurance incendie :
-          <NumericInput id="incendie" bind:value={params.incendie} suffix="€" />
-        </label>
-        <label
-          class="flex items-center text-nowrap gap-2 select-none"
-          for="asrd"
-        >
-          Assurance Solde Restant Dû :
-          <NumericInput id="asrd" bind:value={params.asrd} suffix="€" />
-        </label>
-        {#if params.asrd}
-          <label
-            class="flex items-center text-nowrap gap-2 select-none"
-            for="asrdPeriod"
-          >
-            Période de l'ASRD :
-            <NumericInput
-              id="asrdPeriod"
-              bind:value={params.asrdPeriod}
-              suffix="ans"
-            />
-          </label>
-        {/if}
-        <ul class="flex flex-col gap-3">
-          {#each params.loaners as loaner, index}
-            {@const loanerId = `loaner_${index}`}
-            <li
-              class="flex flex-col gap-2 shadow border-amber-500 border-2 p-3 rounded-lg"
-            >
-              <div class="flex items-center gap-3">
-                <label
-                  class="flex w-full items-center text-nowrap gap-2 select-none"
-                  for="{loanerId}-name"
-                >
-                  Nom :
-                  <input
-                    id="{loanerId}-name"
-                    type="text"
-                    class="w-full px-1 border-b-2 border-amber-500"
-                    bind:value={loaner.name}
-                  />
-                </label>
-                <button
-                  type="button"
-                  class="cursor-pointer font-black text-red-700"
-                  title="Supprimer"
-                  onclick={() => removeLoaner(loaner)}
-                >
-                  x
-                </button>
-              </div>
-              <label
-                class="flex w-full items-center text-nowrap gap-2 select-none"
-                for="{loanerId}-equity"
-              >
-                Fonds propres :
-                <NumericInput
-                  id="{loanerId}-equity"
-                  bind:value={loaner.equity}
-                  suffix="€"
-                />
-              </label>
-              {#if params.loaners.length > 1}
-                <label
-                  class="flex w-full items-center text-nowrap gap-2 select-none"
-                  for="{loanerId}-share"
-                >
-                  Part :
-                  <input
-                    type="range"
-                    class="w-full"
-                    min={1}
-                    max={100}
-                    step={1}
-                    bind:value={loaner.share}
-                    oninput={() => updateShares(loaner)}
-                  />
-                  <NumericInput
-                    id="{loanerId}-share"
-                    bind:value={loaner.share}
-                    suffix="%"
-                    short={true}
-                  />
-                </label>
-              {/if}
-              <label
-                class="flex w-full items-center text-nowrap gap-2 cursor-pointer select-none"
-                for="{loanerId}-owner"
-              >
-                Déjà propriétaire :
-                <input
-                  id="{loanerId}-owner"
-                  class="cursor-pointer"
-                  type="checkbox"
-                  bind:checked={loaner.owner}
-                />
-              </label>
-            </li>
-          {/each}
-        </ul>
-        <button
-          type="button"
-          class="cursor-pointer flex p-3 shadow bg-amber-600 hover:bg-amber-700 transition-colors text-white rounded-xl font-bold"
-          onclick={addLoaner}
-        >
-          ➕ Ajouter un propriétaire
-        </button>
-      </div>
-    </details>
-    <details class="flex flex-col gap-3" open>
-      <summary class="cursor-pointer list-none">
-        <h2 class="font-bold text-xl py-1 border-b-2 border-slate-300">
-          Frais 💸
-        </h2>
-      </summary>
-      <div class="flex flex-col gap-3">
-        <ul class="flex flex-col gap-2">
-          {#each Object.keys(mortgageResult.fees) as name}
+<main
+  class="w-screen h-screen flex flex-col gap-8 p-5 overflow-auto md:flex-row md:flex-wrap"
+>
+  <details class="flex flex-col gap-3" open>
+    <summary class="cursor-pointer list-none">
+      <h2 class="font-bold text-xl py-1 border-b-2 border-slate-300">
+        Paramètres ⚙️
+      </h2>
+    </summary>
+    <div class="flex flex-col gap-3">
+      <label
+        class="flex items-center text-nowrap gap-2 select-none"
+        for="principal"
+      >
+        Prix total :
+        <NumericInput id="principal" bind:value={params.principal} suffix="€" />
+      </label>
+      <label
+        for="fixedRate"
+        class="flex items-center text-nowrap gap-2 select-none"
+      >
+        Taux fixe :
+        <NumericInput id="fixedRate" bind:value={params.fixedRate} suffix="%" />
+      </label>
+      <div class="flex gap-2">
+        Durée :
+        <ul class="flex gap-1">
+          {#each DURATIONS as duration}
             <li>
               <label
-                class="flex items-center text-nowrap gap-2 select-none"
-                for={name}
+                for="duration_{duration}"
+                class="cursor-pointer p-2 rounded-lg hover:bg-amber-500 hover:text-white transition-colors"
+                class:bg-amber-600={params.duration === duration}
+                class:text-white={params.duration === duration}
               >
-                {name} :
-                {#if name in fees}
-                  <NumericInput id={name} bind:value={fees[name]} suffix="€" />
-                {:else}
-                  <strong>{formatCurrency((mortgageResult.fees as any)[name])}</strong>
-                {/if}
+                <strong>{duration} ans</strong>
+                <input
+                  id="duration_{duration}"
+                  type="radio"
+                  name="duration"
+                  class="hidden"
+                  value={duration}
+                  bind:group={params.duration}
+                />
               </label>
             </li>
           {/each}
         </ul>
-        <h3 class="p-2 border-2 border-amber-600 rounded-lg">
-          Total : <strong class="text-amber-600">
-            {formatCurrency(sum(Object.values(mortgageResult.fees)))}
-          </strong>
-        </h3>
       </div>
-    </details>
-  </div>
+      <label
+        class="flex items-center text-nowrap gap-2 select-none"
+        for="incendie"
+      >
+        Assurance incendie :
+        <NumericInput id="incendie" bind:value={params.incendie} suffix="€" />
+      </label>
+      <label class="flex items-center text-nowrap gap-2 select-none" for="asrd">
+        Assurance Solde Restant Dû :
+        <NumericInput id="asrd" bind:value={params.asrd} suffix="€" />
+      </label>
+      {#if params.asrd}
+        <label
+          class="flex items-center text-nowrap gap-2 select-none"
+          for="asrdPeriod"
+        >
+          Période de l'ASRD :
+          <NumericInput
+            id="asrdPeriod"
+            bind:value={params.asrdPeriod}
+            suffix="ans"
+          />
+        </label>
+      {/if}
+      <ul class="flex flex-col gap-3">
+        {#each params.loaners as loaner, index}
+          {@const loanerId = `loaner_${index}`}
+          <li
+            class="flex flex-col gap-2 shadow border-amber-500 border-2 p-3 rounded-lg"
+          >
+            <div class="flex items-center gap-3">
+              <label
+                class="flex w-full items-center text-nowrap gap-2 select-none"
+                for="{loanerId}-name"
+              >
+                Nom :
+                <input
+                  id="{loanerId}-name"
+                  type="text"
+                  class="w-full px-1 border-b-2 border-amber-500"
+                  bind:value={loaner.name}
+                />
+              </label>
+              <button
+                type="button"
+                class="cursor-pointer font-black text-red-700"
+                title="Supprimer"
+                onclick={() => removeLoaner(loaner)}
+              >
+                x
+              </button>
+            </div>
+            <label
+              class="flex w-full items-center text-nowrap gap-2 select-none"
+              for="{loanerId}-equity"
+            >
+              Fonds propres :
+              <NumericInput
+                id="{loanerId}-equity"
+                bind:value={loaner.equity}
+                suffix="€"
+              />
+            </label>
+            {#if params.loaners.length > 1}
+              <label
+                class="flex w-full items-center text-nowrap gap-2 select-none"
+                for="{loanerId}-share"
+              >
+                Part :
+                <input
+                  type="range"
+                  class="w-full"
+                  min={1}
+                  max={100}
+                  step={1}
+                  bind:value={loaner.share}
+                  oninput={() => updateShares(loaner)}
+                />
+                <NumericInput
+                  id="{loanerId}-share"
+                  bind:value={loaner.share}
+                  suffix="%"
+                  short={true}
+                />
+              </label>
+            {/if}
+            <label
+              class="flex w-full items-center text-nowrap gap-2 cursor-pointer select-none"
+              for="{loanerId}-owner"
+            >
+              Déjà propriétaire :
+              <input
+                id="{loanerId}-owner"
+                class="cursor-pointer"
+                type="checkbox"
+                bind:checked={loaner.owner}
+              />
+            </label>
+          </li>
+        {/each}
+      </ul>
+      <button
+        type="button"
+        class="cursor-pointer flex p-3 shadow bg-amber-600 hover:bg-amber-700 transition-colors text-white rounded-xl font-bold"
+        onclick={addLoaner}
+      >
+        ➕ Ajouter un propriétaire
+      </button>
+    </div>
+  </details>
+  <details class="flex flex-col gap-3" open>
+    <summary class="cursor-pointer list-none">
+      <h2 class="font-bold text-xl py-1 border-b-2 border-slate-300">
+        Frais 💸
+      </h2>
+    </summary>
+    <div class="flex flex-col gap-3">
+      <ul class="flex flex-col gap-2">
+        {#each Object.keys(mortgageResult.fees) as name}
+          <li>
+            <label
+              class="flex items-center text-nowrap gap-2 select-none"
+              for={name}
+            >
+              {name} :
+              {#if name in fees}
+                <NumericInput id={name} bind:value={fees[name]} suffix="€" />
+              {:else}
+                <strong>
+                  {formatCurrency((mortgageResult.fees as any)[name])}
+                </strong>
+              {/if}
+            </label>
+          </li>
+        {/each}
+      </ul>
+      <h3 class="p-2 border-2 border-amber-600 rounded-lg">
+        Total : <strong class="text-amber-600">
+          {formatCurrency(sum(Object.values(mortgageResult.fees)))}
+        </strong>
+      </h3>
+    </div>
+  </details>
   <details class="flex flex-col gap-3" open>
     <summary class="cursor-pointer list-none">
       <h2 class="font-bold text-xl py-1 border-b-2 border-slate-300">
@@ -310,16 +301,44 @@
     </summary>
     <fieldset class="flex flex-col gap-2">
       <div>
-        Montant: <strong>{formatCurrency(mortgageResult.principal)}</strong>
+        Fonds propres restant : <strong>
+          {formatCurrency(mortgageResult.equity)}
+        </strong>
+      </div>
+      <div>
+        Montant du prêt : <strong>
+          {formatCurrency(mortgageResult.principal)}
+        </strong>
       </div>
       <div>
         TAEG : <strong>{formatPercent(mortgageResult.taeg)}</strong>
       </div>
       <div>
         Mensualités : <strong>
-          {formatCurrency(mortgageResult.monthlyPayment)}
+          {formatCurrency(
+            mortgageResult.monthlyBase +
+              mortgageResult.monthlyInterests +
+              mortgageResult.monthlyInsurances,
+          )}
         </strong>
       </div>
+      <ul class="ms-5 text-sm text-gray-500 italic list-disc">
+        <li>
+          base : <strong>
+            {formatCurrency(mortgageResult.monthlyBase)}
+          </strong>
+        </li>
+        <li>
+          intérêts : <strong>
+            {formatCurrency(mortgageResult.monthlyInterests)}
+          </strong>
+        </li>
+        <li>
+          assurances : <strong>
+            {formatCurrency(mortgageResult.monthlyInsurances)}
+          </strong>
+        </li>
+      </ul>
       {#each mortgageResult.monthlyPayments || [] as [name, payment]}
         <div class="ps-2">
           <strong class="text-amber-600">{name}</strong>
@@ -328,8 +347,31 @@
         </div>
       {/each}
       <div>
-        Total : <strong>{formatCurrency(mortgageResult.totalPaid)}</strong>
+        Total : <strong>
+          {formatCurrency(
+            mortgageResult.totalBase +
+              mortgageResult.totalInterests +
+              mortgageResult.totalInsurances,
+          )}
+        </strong>
       </div>
+      <ul class="ms-5 text-sm text-gray-500 italic list-disc">
+        <li>
+          base : <strong>
+            {formatCurrency(mortgageResult.totalBase)}
+          </strong>
+        </li>
+        <li>
+          intérêts : <strong>
+            {formatCurrency(mortgageResult.totalInterests)}
+          </strong>
+        </li>
+        <li>
+          assurances : <strong>
+            {formatCurrency(mortgageResult.totalInsurances)}
+          </strong>
+        </li>
+      </ul>
       {#each mortgageResult.totalsPaid || [] as [name, total]}
         <div class="ps-2">
           <strong class="text-amber-600">{name}</strong>
@@ -337,18 +379,6 @@
           <span>{formatCurrency(total)}</span>
         </div>
       {/each}
-      <div>
-        Total intérêts : <strong>
-          {formatCurrency(mortgageResult.totalInterest)}
-        </strong>
-      </div>
-      {#if mortgageResult.totalInsurance}
-        <div>
-          Total assurances : <strong>
-            {formatCurrency(mortgageResult.totalInsurance)}
-          </strong>
-        </div>
-      {/if}
     </fieldset>
   </details>
 </main>

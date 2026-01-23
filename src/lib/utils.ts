@@ -11,122 +11,87 @@ interface LoanerInfo extends Loaner {
 }
 
 interface MortgageResult {
-  duration: number;
-  monthlyPayment: number;
+  monthlyBase: number;
+  monthlyInsurances: number;
+  monthlyInterests: number;
   monthlyPayments?: [string, number][];
-  totalInterest: number;
-  totalInsurance: number;
-  totalPaid: number;
-  totalsPaid?: [string, number][];
   taeg: number;
+  totalBase: number;
+  totalInsurances: number;
+  totalInterests: number;
+  totalsPaid?: [string, number][];
+}
+
+function computeAnnuity(loan: number, rate: number, duration: number) {
+  const monthlyRate = rate / 12 / 100;
+  const amountOfPayments = duration * 12;
+  const monthlyBase = loan / amountOfPayments;
+
+  const totalMonthlyRate = (1 + monthlyRate) ** amountOfPayments;
+  const fixedMonthlyPayment =
+    (loan * monthlyRate * totalMonthlyRate) / (totalMonthlyRate - 1);
+
+  const totalWithInterests = fixedMonthlyPayment * amountOfPayments;
+  const totalInterests = totalWithInterests - loan;
+  const monthlyInterests = fixedMonthlyPayment - monthlyBase;
+
+  return {
+    amountOfPayments,
+    monthlyBase,
+    monthlyInterests,
+    totalBase: loan,
+    totalInterests,
+  };
 }
 
 /**
  * @param loan - principal amount in €
  * @param rate - yearly nominal rate (e.g. 3.2 for 3.2%)
  * @param duration - in years
- * @param monthlyMandatoryInsurance - mandatory insurance per month in €
+ * @param monthlyInsurances - mandatory insurance per month in €
  * @param upfrontFees - in €
  */
 function computeAnnuityWithTAEG(
   loan: number,
   rate: number,
   duration: number,
-  monthlyMandatoryInsurance: number,
-  upfrontFees: number,
+  monthlyInsurances: number,
 ): MortgageResult {
-  const monthlyRate = rate / 12 / 100;
-  const amountOfPayments = duration * 12;
-  const totalMonthlyRate = (1 + monthlyRate) ** amountOfPayments;
-  const fixedMonthlyPayment =
-    (loan * monthlyRate * totalMonthlyRate) / (totalMonthlyRate - 1);
+  const annuity = computeAnnuity(loan, rate, duration);
+  const totalInsurances = monthlyInsurances * annuity.amountOfPayments;
+  const grandTotal =
+    annuity.totalBase + annuity.totalInterests + totalInsurances;
 
-  const totalInterest = fixedMonthlyPayment * amountOfPayments - loan;
-  const totalInsurance = monthlyMandatoryInsurance * amountOfPayments;
+  const targetMin = grandTotal - 1;
+  const targetMax = grandTotal + 1;
 
-  // Cash flows for TAEG (borrower perspective)
-  const cashFlows = [
-    loan - upfrontFees, // t = 0
-  ].concat(
-    Array(amountOfPayments).fill(
-      -(fixedMonthlyPayment + monthlyMandatoryInsurance),
-    ),
-  );
-
-  const monthlyIRR = computeIRR(cashFlows);
-  const taeg = (1 + monthlyIRR) ** 12 - 1;
+  let taeg = 0;
+  let maxIter = 0;
+  let min = rate;
+  let max = min * 2;
+  let current = (min + max) / 2;
+  while (maxIter++ < 1e6) {
+    const testAnnuity = computeAnnuity(loan, current, duration);
+    const testTotal = testAnnuity.totalBase + testAnnuity.totalInterests;
+    if (testTotal < targetMin) {
+      min = current;
+    } else if (testTotal > targetMax) {
+      max = current;
+    } else {
+      taeg = current / 100;
+      break;
+    }
+    current = (min + max) / 2;
+  }
 
   return {
-    duration,
-    monthlyPayment: fixedMonthlyPayment + monthlyMandatoryInsurance,
-    totalInterest,
-    totalInsurance,
-    totalPaid:
-      fixedMonthlyPayment * amountOfPayments + totalInsurance + upfrontFees,
+    ...annuity,
+    monthlyInsurances,
+    totalBase: loan,
+    totalInsurances,
     taeg,
   };
 }
-
-function computeIRR(cashFlows: number[], guess = 0.002) {
-  const maxIterations = 1_000;
-  const precision = 1e-9;
-  let rate = guess;
-
-  for (let i = 0; i < maxIterations; i++) {
-    let npv = 0;
-    let dNpv = 0;
-    for (let t = 0; t < cashFlows.length; t++) {
-      const df = (1 + rate) ** t;
-      npv += cashFlows[t] / df;
-      if (t > 0) {
-        const denom = (1 + rate) ** (t + 1);
-        dNpv -= (t * cashFlows[t]) / denom;
-      }
-    }
-    if (Math.abs(dNpv) < 1e-12) {
-      break;
-    }
-    const newRate = rate - npv / dNpv;
-    if (!isFinite(newRate) || newRate <= -0.999 || newRate > 1) {
-      break;
-    }
-    if (Math.abs(newRate - rate) < precision) {
-      return newRate;
-    }
-    rate = newRate;
-  }
-
-  // Fallback: bisection method
-  let low = -0.9;
-  let high = 0.05; // 5% monthly = ~80% annual
-  for (let i = 0; i < maxIterations; i++) {
-    const mid = (low + high) / 2;
-    let npv = 0;
-    for (let t = 0; t < cashFlows.length; t++) {
-      npv += cashFlows[t] / (1 + mid) ** t;
-    }
-    if (Math.abs(npv) < precision) {
-      return mid;
-    }
-    if (npv > 0) {
-      low = mid;
-    } else {
-      high = mid;
-    }
-  }
-
-  throw new Error("IRR did not converge");
-}
-
-const FIXED_FEES = {
-  ["Droit pour les annexes"]: 100,
-  ["Honoraires"]: 2771.74,
-  ["Frais administratifs"]: 855,
-  ["Débours"]: 304,
-  ["Transcription hypothécaire"]: 285,
-  ["Droit d'écriture"]: 100,
-  ["TVA"]: 846.46,
-};
 
 /**
  * Computes the Belgian mortgage parameters for buying a property.
@@ -181,7 +146,7 @@ export function computeMortgage(
   };
 
   const equityMinusFixedFees = totalEquity - sum(Object.values(allUpfrontFees));
-  const loanPrincipal = principal - equityMinusFixedFees;
+  const loanTotal = principal - equityMinusFixedFees;
   let upfrontFees = 0;
 
   for (const loaner of loanerInfos) {
@@ -204,25 +169,30 @@ export function computeMortgage(
   }
 
   const result = computeAnnuityWithTAEG(
-    loanPrincipal,
+    loanTotal,
     fixedRate,
     duration,
     mandatoryInsurances,
-    upfrontFees,
   );
+  const totalPaid =
+    result.totalBase + result.totalInterests + result.totalInsurances;
+  const monthlyTotal =
+    result.monthlyBase + result.monthlyInterests + mandatoryInsurances;
   if (loanerInfos.length > 1) {
     result.totalsPaid = [];
     result.monthlyPayments = [];
     for (const { name, split } of loanerInfos) {
       const nameShort = name.split(/\s+/)[0];
-      result.totalsPaid.push([nameShort, split * result.totalPaid]);
-      result.monthlyPayments.push([nameShort, split * result.monthlyPayment]);
+      result.totalsPaid.push([nameShort, split * totalPaid]);
+      result.monthlyPayments.push([nameShort, split * monthlyTotal]);
     }
   }
   return {
     ...result,
+    duration,
+    equity: equityMinusFixedFees,
     fees: allUpfrontFees,
-    principal: loanPrincipal,
+    principal: loanTotal,
   };
 }
 
