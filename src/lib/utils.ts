@@ -1,6 +1,8 @@
 export interface Loaner {
-  name: string;
+  asrd: number;
+  asrdPeriod: number;
   equity: number;
+  name: string;
   owner: boolean;
   share: number;
 }
@@ -27,9 +29,14 @@ function computeAnnuity(loan: number, rate: number, duration: number) {
   const amountOfPayments = duration * 12;
   const monthlyBase = loan / amountOfPayments;
 
-  const totalMonthlyRate = (1 + monthlyRate) ** amountOfPayments;
-  const fixedMonthlyPayment =
-    (loan * monthlyRate * totalMonthlyRate) / (totalMonthlyRate - 1);
+  let fixedMonthlyPayment: number;
+  if (monthlyRate) {
+    const totalMonthlyRate = (1 + monthlyRate) ** amountOfPayments;
+    fixedMonthlyPayment =
+      (loan * monthlyRate * totalMonthlyRate) / (totalMonthlyRate - 1);
+  } else {
+    fixedMonthlyPayment = monthlyBase;
+  }
 
   const totalWithInterests = fixedMonthlyPayment * amountOfPayments;
   const totalInterests = totalWithInterests - loan;
@@ -49,7 +56,6 @@ function computeAnnuity(loan: number, rate: number, duration: number) {
  * @param rate - yearly nominal rate (e.g. 3.2 for 3.2%)
  * @param duration - in years
  * @param monthlyInsurances - mandatory insurance per month in €
- * @param upfrontFees - in €
  */
 function computeAnnuityWithTAEG(
   loan: number,
@@ -59,38 +65,49 @@ function computeAnnuityWithTAEG(
 ): MortgageResult {
   const annuity = computeAnnuity(loan, rate, duration);
   const totalInsurances = monthlyInsurances * annuity.amountOfPayments;
-  const grandTotal =
-    annuity.totalBase + annuity.totalInterests + totalInsurances;
+  const total = annuity.totalBase + annuity.totalInterests + totalInsurances;
 
-  const targetMin = grandTotal - 1;
-  const targetMax = grandTotal + 1;
-
-  let taeg = 0;
-  let maxIter = 0;
-  let min = rate;
-  let max = min * 2;
-  let current = (min + max) / 2;
-  while (maxIter++ < 1e6) {
-    const testAnnuity = computeAnnuity(loan, current, duration);
-    const testTotal = testAnnuity.totalBase + testAnnuity.totalInterests;
-    if (testTotal < targetMin) {
-      min = current;
-    } else if (testTotal > targetMax) {
-      max = current;
-    } else {
-      taeg = current / 100;
-      break;
-    }
-    current = (min + max) / 2;
-  }
+  const taeg100 = bisect(
+    (current) => {
+      const testAnnuity = computeAnnuity(loan, current, duration);
+      return testAnnuity.totalBase + testAnnuity.totalInterests;
+    },
+    total,
+    0,
+    rate * 2,
+  );
 
   return {
     ...annuity,
     monthlyInsurances,
     totalBase: loan,
     totalInsurances,
-    taeg,
+    taeg: taeg100 / 100,
   };
+}
+
+function bisect(
+  func: (current: number) => number,
+  target: number,
+  lower: number,
+  upper: number,
+  epsilon = 1e-6,
+  maxIter = 1e6,
+) {
+  let current = (lower + upper) / 2;
+  let iter = 0;
+  while (iter++ < maxIter) {
+    const value = func(current);
+    if (value < target - epsilon) {
+      lower = current;
+    } else if (value > target + epsilon) {
+      upper = current;
+    } else {
+      break;
+    }
+    current = (lower + upper) / 2;
+  }
+  return current; // Return the best estimate after max iterations
 }
 
 /**
@@ -99,16 +116,12 @@ function computeAnnuityWithTAEG(
  */
 export function computeMortgage(
   {
-    asrd,
-    asrdPeriod,
     duration,
     fixedRate,
     loaners,
     incendie,
     principal,
   }: {
-    asrd: number;
-    asrdPeriod: number;
     duration: number;
     fixedRate: number;
     incendie: number;
@@ -122,6 +135,7 @@ export function computeMortgage(
   let totalRegisteringRights = 0;
   let totalEquity = 0;
   let totalRemaining = 0;
+  let mandatoryInsurances = incendie;
 
   for (const loaner of loaners) {
     const sharePercent = (loaner.share || defaultShare) / 100;
@@ -130,12 +144,20 @@ export function computeMortgage(
       remaining: Math.max(0, principal * sharePercent - loaner.equity),
       split: 0,
     };
+    let equity = loaner.equity;
+    if (loaner.asrd > 0) {
+      if (loaner.asrdPeriod > 0) {
+        mandatoryInsurances += loaner.asrd / (loaner.asrdPeriod * 12);
+      } else {
+        equity -= loaner.asrd;
+      }
+    }
     // Droits d'enregistrement en Belgique depuis janvier 2025:
     // - 3% si aucune autre pleine propriété
     // - 12.5% si pleine propriété à 100% déjà existante
     totalRegisteringRights +=
       sharePercent * principal * (loaner.owner ? 0.125 : 0.03);
-    totalEquity += loaner.equity;
+    totalEquity += equity;
     totalRemaining += loanerInfo.remaining;
     loanerInfos.push(loanerInfo);
   }
@@ -147,25 +169,12 @@ export function computeMortgage(
 
   const equityMinusFixedFees = totalEquity - sum(Object.values(allUpfrontFees));
   const loanTotal = principal - equityMinusFixedFees;
-  let upfrontFees = 0;
 
   for (const loaner of loanerInfos) {
     loaner.split =
       totalRemaining > 0
         ? loaner.remaining! / totalRemaining
         : 1 / (loaners.length || 1);
-  }
-
-  let mandatoryInsurances = 0;
-  if (incendie > 0) {
-    mandatoryInsurances += incendie;
-  }
-  if (asrd > 0) {
-    if (asrdPeriod > 0) {
-      mandatoryInsurances += asrd / (asrdPeriod * 12);
-    } else {
-      upfrontFees += asrd;
-    }
   }
 
   const result = computeAnnuityWithTAEG(

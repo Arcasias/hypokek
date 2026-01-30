@@ -1,11 +1,6 @@
-<script lang="ts">
+<script lang="ts" module>
   import NumericInput from "./lib/NumericInput.svelte";
   import { computeMortgage, sum, type Loaner } from "./lib/utils";
-
-  function addLoaner() {
-    params.loaners.push({ ...DEFAULT_LOANER_VALUES });
-    updateShares();
-  }
 
   function formatCurrency(value: number) {
     return currencyFormatter.format(value);
@@ -13,6 +8,36 @@
 
   function formatPercent(value: number) {
     return percentFormatter.format(value);
+  }
+
+
+  const DEFAULT_LOANER_VALUES = {
+    asrd: 0,
+    asrdPeriod: 0,
+    equity: 0,
+    name: "",
+    owner: false,
+    share: 0,
+  };
+  const DURATIONS = [20, 25, 30];
+  const LOCALE = "fr-BE";
+  const STORAGE_FEES_KEY = "mortgage-fees";
+  const STORAGE_PARAMS_KEY = "mortgage-params";
+
+  const currencyFormatter = new Intl.NumberFormat(LOCALE, {
+    style: "currency",
+    currency: "EUR",
+  });
+  const percentFormatter = new Intl.NumberFormat(LOCALE, {
+    style: "percent",
+    maximumFractionDigits: 2,
+  });
+</script>
+
+<script lang="ts">
+  function addLoaner() {
+    params.loaners.push({ ...DEFAULT_LOANER_VALUES });
+    updateShares();
   }
 
   function updateShares(targetLoaner?: Loaner) {
@@ -32,26 +57,6 @@
     updateShares();
   }
 
-  const DEFAULT_LOANER_VALUES = {
-    name: "",
-    equity: 0,
-    owner: false,
-    share: 0,
-  };
-  const DURATIONS = [20, 25, 30];
-  const LOCALE = "fr-BE";
-  const STORAGE_FEES_KEY = "mortgage-fees";
-  const STORAGE_PARAMS_KEY = "mortgage-params";
-
-  const currencyFormatter = new Intl.NumberFormat(LOCALE, {
-    style: "currency",
-    currency: "EUR",
-  });
-  const percentFormatter = new Intl.NumberFormat(LOCALE, {
-    style: "percent",
-    maximumFractionDigits: 2,
-  });
-
   const storageFees = localStorage.getItem(STORAGE_FEES_KEY);
   let fees = $state(
     storageFees
@@ -70,8 +75,6 @@
 
   const storageParams = localStorage.getItem(STORAGE_PARAMS_KEY);
   let params = $state<{
-    asrd: number;
-    asrdPeriod: number;
     duration: number;
     fixedRate: number;
     incendie: number;
@@ -81,8 +84,6 @@
     storageParams
       ? JSON.parse(storageParams)
       : {
-          asrd: 0,
-          asrdPeriod: 0,
           duration: DURATIONS[0],
           fixedRate: 3,
           incendie: 0,
@@ -102,7 +103,7 @@
 </script>
 
 <main
-  class="w-screen h-screen flex flex-col gap-8 p-5 overflow-auto md:flex-row md:flex-wrap"
+  class="w-screen h-screen flex flex-col justify-center gap-8 p-5 overflow-auto lg:flex-row"
 >
   <details class="flex flex-col gap-3" open>
     <summary class="cursor-pointer list-none">
@@ -157,23 +158,6 @@
         Assurance incendie :
         <NumericInput id="incendie" bind:value={params.incendie} suffix="€" />
       </label>
-      <label class="flex items-center text-nowrap gap-2 select-none" for="asrd">
-        Assurance Solde Restant Dû :
-        <NumericInput id="asrd" bind:value={params.asrd} suffix="€" />
-      </label>
-      {#if params.asrd}
-        <label
-          class="flex items-center text-nowrap gap-2 select-none"
-          for="asrdPeriod"
-        >
-          Période de l'ASRD :
-          <NumericInput
-            id="asrdPeriod"
-            bind:value={params.asrdPeriod}
-            suffix="ans"
-          />
-        </label>
-      {/if}
       <ul class="flex flex-col gap-3">
         {#each params.loaners as loaner, index}
           {@const loanerId = `loaner_${index}`}
@@ -193,14 +177,16 @@
                   bind:value={loaner.name}
                 />
               </label>
-              <button
-                type="button"
-                class="cursor-pointer font-black text-red-700"
-                title="Supprimer"
-                onclick={() => removeLoaner(loaner)}
-              >
-                x
-              </button>
+              {#if params.loaners.length > 1}
+                <button
+                  type="button"
+                  class="cursor-pointer font-black text-red-700"
+                  title="Supprimer"
+                  onclick={() => removeLoaner(loaner)}
+                >
+                  ❌
+                </button>
+              {/if}
             </div>
             <label
               class="flex w-full items-center text-nowrap gap-2 select-none"
@@ -211,6 +197,18 @@
                 id="{loanerId}-equity"
                 bind:value={loaner.equity}
                 suffix="€"
+              />
+            </label>
+            <label
+              class="flex w-full items-center text-nowrap gap-2 cursor-pointer select-none"
+              for="{loanerId}-owner"
+            >
+              Déjà propriétaire :
+              <input
+                id="{loanerId}-owner"
+                class="cursor-pointer"
+                type="checkbox"
+                bind:checked={loaner.owner}
               />
             </label>
             {#if params.loaners.length > 1}
@@ -231,33 +229,52 @@
                 <NumericInput
                   id="{loanerId}-share"
                   bind:value={loaner.share}
+                  onchange={() => updateShares(loaner)}
                   suffix="%"
                   short={true}
                 />
               </label>
             {/if}
             <label
-              class="flex w-full items-center text-nowrap gap-2 cursor-pointer select-none"
-              for="{loanerId}-owner"
+              class="flex w-full items-center text-nowrap gap-2 select-none"
+              for="{loanerId}-asrd"
             >
-              Déjà propriétaire :
-              <input
-                id="{loanerId}-owner"
-                class="cursor-pointer"
-                type="checkbox"
-                bind:checked={loaner.owner}
+              <abbr class="cursor-help" title="Assurance Solde Restant Dû">
+                ASRD
+              </abbr>
+              :
+              <NumericInput
+                id="{loanerId}-asrd"
+                bind:value={loaner.asrd}
+                suffix="€"
               />
             </label>
+            {#if loaner.asrd}
+              <label
+                class="flex w-full items-center text-nowrap gap-2 select-none"
+                for="{loanerId}-asrdPeriod"
+              >
+                Période ASRD :
+                <NumericInput
+                  id="{loanerId}-asrdPeriod"
+                  bind:value={loaner.asrdPeriod}
+                  digits={0}
+                  suffix="ans"
+                />
+              </label>
+            {/if}
           </li>
         {/each}
       </ul>
-      <button
-        type="button"
-        class="cursor-pointer flex p-3 shadow bg-amber-600 hover:bg-amber-700 transition-colors text-white rounded-xl font-bold"
-        onclick={addLoaner}
-      >
-        ➕ Ajouter un propriétaire
-      </button>
+      {#if params.loaners.length < 2}
+        <button
+          type="button"
+          class="cursor-pointer flex p-3 shadow bg-amber-600 hover:bg-amber-700 transition-colors text-white rounded-xl font-bold"
+          onclick={addLoaner}
+        >
+          ➕ Ajouter un propriétaire
+        </button>
+      {/if}
     </div>
   </details>
   <details class="flex flex-col gap-3" open>
